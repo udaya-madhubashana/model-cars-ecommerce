@@ -1,0 +1,151 @@
+==============================================================================
+MODELCARS PRO - ENTITY RELATIONSHIP (ER) DIAGRAM & DATABASE DOCUMENTATION
+Project: ICT2142 E-Business Systems Project
+Database: model_cars_db
+==============================================================================
+
+1. ENTITY RELATIONSHIP DIAGRAM (ASCII)
+------------------------------------------------------------------------------
+
+    +-------------------+               +-------------------+
+    |     CATEGORIES    |               |       USERS       |
+    +-------------------+               +-------------------+
+    | PK  id            |               | PK  id            |
+    |     name          |               |     full_name     |
+    |     slug          |               |     email         |
+    |     description   |               |     password      |
+    |     icon          |               |     phone         |
+    +---------+---------+               |     address       |
+              | 1                       |     city          |
+              |                         |     role          |
+              | has many                +---------+---------+
+              | (1:N)                             | 1
+              |                                   | places
+              v N                                 | (1:N)
+    +-------------------+                         v N
+    |     PRODUCTS      |               +-------------------+
+    +-------------------+               |       ORDERS      |
+    | PK  id            |               +-------------------+
+    | FK  category_id   |               | PK  id            |
+    |     brand         |               |     order_number  |
+    |     name          |               | FK  user_id (opt) |
+    |     slug          |               |     customer_name |
+    |     scale         |               |     customer_email|
+    |     description   |               |     customer_phone|
+    |     price         |               |     shipping_addr |
+    |     old_price     |               |     city          |
+    |     stock_quantity|               |     postal_code   |
+    |     rating        |               |     payment_method|
+    |     badge         |               |     subtotal      |
+    |     image         |               |     shipping_fee  |
+    |     is_featured   |               |     total_amount  |
+    +---------+---------+               |     order_status  |
+              | 1                       +---------+---------+
+              |                                   | 1
+              | referenced in                     | contains
+              | (1:N)                             | (1:N)
+              v N                                 v N
+    +-------------------------------------------------------+
+    |                     ORDER_ITEMS                       |
+    +-------------------------------------------------------+
+    | PK  id                                                |
+    | FK  order_id   ---------------------------------------+
+    | FK  product_id ---------------------------------------+
+    |     product_name                                      |
+    |     product_price                                     |
+    |     quantity                                          |
+    |     total_price                                       |
+    +-------------------------------------------------------+
+
+
+2. ENTITY DEFINITIONS & DATA DICTIONARY
+------------------------------------------------------------------------------
+
+2.1 CATEGORIES Table
+- Purpose: Organizes model cars into distinct segments (e.g. Sports Cars, Classics, Vintage, Limited Edition).
+- Attributes:
+  * id (INT, PK, Auto-Increment): Unique category identifier.
+  * name (VARCHAR(100)): Display name of category.
+  * slug (VARCHAR(100), Unique): URL-friendly unique identifier.
+  * description (TEXT): Detailed description of category models.
+  * icon (VARCHAR(50)): Emoji or SVG icon indicator.
+
+2.2 PRODUCTS Table
+- Purpose: Stores individual die-cast and scale model vehicle inventory.
+- Attributes:
+  * id (INT, PK, Auto-Increment): Unique product ID.
+  * category_id (INT, FK -> categories.id): Associated product category.
+  * brand (VARCHAR(80)): Brand/manufacturer (e.g. Hot Wheels, Matchbox, Tamiya).
+  * name (VARCHAR(150)): Full model car name.
+  * slug (VARCHAR(150), Unique): URL-safe slug for product details page.
+  * scale (VARCHAR(20)): Scale ratio (e.g. 1:64, 1:24, 1:43, 1:18).
+  * description (TEXT): Complete product specifications and features.
+  * price (DECIMAL(10,2)): Current retail selling price.
+  * old_price (DECIMAL(10,2), Nullable): Strikethrough discount price.
+  * stock_quantity (INT): Available warehouse stock count.
+  * rating (DECIMAL(2,1)): Average customer review rating out of 5.0.
+  * reviews_count (INT): Total number of customer reviews.
+  * badge (VARCHAR(50), Nullable): Marketing badge (e.g. "Hot Deal", "Limited", "New").
+  * image (VARCHAR(255)): Image filename relative to images/products/.
+  * is_featured (TINYINT(1)): Flag (1 or 0) determining homepage display.
+
+2.3 USERS Table
+- Purpose: Stores registered customers and administrative staff accounts.
+- Attributes:
+  * id (INT, PK, Auto-Increment): Unique user identifier.
+  * full_name (VARCHAR(100)): Full name of user.
+  * email (VARCHAR(150), Unique): Login email address.
+  * password (VARCHAR(255)): Secure password hash generated via password_hash().
+  * phone (VARCHAR(30), Nullable): Contact phone number.
+  * address (TEXT, Nullable): Saved delivery address.
+  * city (VARCHAR(50), Nullable): Default shipping city.
+  * role (ENUM('customer', 'admin')): Access permission level.
+
+2.4 ORDERS Table
+- Purpose: Represents complete customer checkout transactions.
+- Attributes:
+  * id (INT, PK, Auto-Increment): Internal order primary key.
+  * order_number (VARCHAR(50), Unique): Unique customer-facing reference (e.g. ORD-2024-8492).
+  * user_id (INT, FK -> users.id, Nullable): Registered user ID or NULL for guest checkout.
+  * customer_name (VARCHAR(100)): Recipient name.
+  * customer_email (VARCHAR(150)): Email for order confirmation notifications.
+  * customer_phone (VARCHAR(30)): Contact phone number for shipping courier.
+  * shipping_address (TEXT): Full physical destination address.
+  * city (VARCHAR(50)): Delivery city / province.
+  * postal_code (VARCHAR(20)): Destination postal code.
+  * payment_method (VARCHAR(50)): Method selected ('cod', 'card', 'bank_transfer').
+  * subtotal (DECIMAL(10,2)): Sum of items before shipping.
+  * shipping_fee (DECIMAL(10,2)): Courier delivery charge (Rs. 0 if >= Rs. 5000).
+  * total_amount (DECIMAL(10,2)): Final billed amount.
+  * order_status (ENUM): Lifecycle status ('Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled').
+
+2.5 ORDER_ITEMS Table
+- Purpose: Line-item breakdown linking orders to specific purchased products.
+- Attributes:
+  * id (INT, PK, Auto-Increment): Unique line item ID.
+  * order_id (INT, FK -> orders.id): Parent order reference.
+  * product_id (INT, FK -> products.id): Purchased product reference.
+  * product_name (VARCHAR(150)): Historical snapshot of product name at purchase time.
+  * product_price (DECIMAL(10,2)): Price paid per unit.
+  * quantity (INT): Number of units ordered.
+  * total_price (DECIMAL(10,2)): Line total (unit price * quantity).
+
+
+3. CARDINALITY AND RELATIONSHIPS
+------------------------------------------------------------------------------
+- Categories to Products: 1 to Many (1:N)
+  * One Category can contain zero or multiple Products.
+  * Each Product belongs to exactly one Category.
+
+- Users to Orders: 1 to Many (1:N)
+  * One registered User can place zero or multiple Orders.
+  * An Order can belong to one User or be created as guest (user_id is NULL).
+
+- Orders to Order_Items: 1 to Many (1:N)
+  * One Order consists of one or more Order_Items.
+  * Each Order_Item belongs to exactly one parent Order.
+
+- Products to Order_Items: 1 to Many (1:N)
+  * A Product can appear across multiple Order_Items over time.
+  * Each Order_Item references exactly one Product.
+==============================================================================

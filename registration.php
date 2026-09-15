@@ -1,7 +1,7 @@
 <?php
 /**
- * ModelCars Pro - Customer Login Page
- * File: login.php
+ * ModelCars Pro - Customer Registration Page
+ * File: registration.php
  */
 
 require_once __DIR__ . '/php/config.php';
@@ -14,22 +14,53 @@ if (isLoggedIn()) {
 }
 
 $errorMessage = '';
+$fullNameValue = '';
 $emailValue = '';
+$phoneValue = '';
+$addressValue = '';
+$cityValue = 'Colombo';
+$postalCodeValue = '00100';
+
 $cartCount = getCartCount();
 $flash = getFlashMessage();
 
-// Process Login Form Submission
+// Process Registration Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $fullName = $_POST['full_name'] ?? '';
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
-    $emailValue = sanitize($email);
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+    $phone = $_POST['phone'] ?? '';
+    $address = $_POST['address'] ?? '';
+    $city = $_POST['city'] ?? '';
+    $postalCode = $_POST['postal_code'] ?? '';
 
-    $loginResult = loginUser($email, $password);
-    if ($loginResult['success']) {
-        setFlashMessage('success', $loginResult['message']);
-        redirect('index.php');
+    // Preserve entered form values
+    $fullNameValue = sanitize($fullName);
+    $emailValue = sanitize($email);
+    $phoneValue = sanitize($phone);
+    $addressValue = sanitize($address);
+    $cityValue = sanitize($city);
+    $postalCodeValue = sanitize($postalCode);
+
+    // Validation
+    if (empty(trim($fullName)) || empty(trim($email)) || empty($password)) {
+        $errorMessage = 'Please fill in all required fields (Full Name, Email, and Password).';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errorMessage = 'Please enter a valid email address.';
+    } elseif (strlen($password) < 6) {
+        $errorMessage = 'Password must be at least 6 characters long.';
+    } elseif ($password !== $confirmPassword) {
+        $errorMessage = 'Passwords do not match. Please re-enter your password.';
     } else {
-        $errorMessage = $loginResult['message'];
+        // Proceed with registration
+        $regResult = registerUser($fullName, $email, $password, $phone, $address, $city, $postalCode);
+        if ($regResult['success']) {
+            setFlashMessage('success', $regResult['message']);
+            redirect('index.php');
+        } else {
+            $errorMessage = $regResult['message'];
+        }
     }
 }
 ?>
@@ -38,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Login - <?php echo APP_NAME; ?></title>
+    <title>Customer Registration - <?php echo APP_NAME; ?></title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -66,8 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <li><span class="user-greeting">Welcome, <?php echo sanitize($currentUser['full_name'] ?? 'Collector'); ?></span></li>
                     <li><a href="logout.php" class="nav-logout-btn">Logout</a></li>
                 <?php else: ?>
-                    <li><a href="login.php" class="active">Login</a></li>
-                    <li><a href="registration.php">Register</a></li>
+                    <li><a href="login.php">Login</a></li>
+                    <li><a href="registration.php" class="active">Register</a></li>
                 <?php endif; ?>
             </ul>
 
@@ -89,18 +120,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="container">
             <a href="index.php">Home</a>
             <span>/</span>
-            <span class="active">Customer Login</span>
+            <span class="active">Customer Registration</span>
         </div>
     </div>
 
     <!-- ===== MAIN AUTH SECTION ===== -->
     <div class="main-content auth-section">
-        <div class="container auth-container">
+        <div class="container auth-container register-container">
             <div class="auth-card">
                 <div class="auth-header">
-                    <div class="auth-icon">🏎️</div>
-                    <h1>Sign In to ModelCars Pro</h1>
-                    <p>Access your collector account, track orders & save your favorites</p>
+                    <div class="auth-icon">🏁</div>
+                    <h1>Create Collector Account</h1>
+                    <p>Join ModelCars Pro to manage orders, fast-track checkout & get exclusive collector deals</p>
                 </div>
 
                 <?php if ($flash): ?>
@@ -115,24 +146,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
 
-                <form action="login.php" method="POST" class="auth-form">
-                    <div class="form-group">
-                        <label for="email">Email Address *</label>
-                        <input type="email" id="email" name="email" value="<?php echo $emailValue; ?>" required autofocus placeholder="collector@example.com">
+                <form action="registration.php" method="POST" class="auth-form">
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label for="full_name">Full Name *</label>
+                            <input type="text" id="full_name" name="full_name" value="<?php echo $fullNameValue; ?>" required autofocus placeholder="e.g. Kasun Perera">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" value="<?php echo $emailValue; ?>" required placeholder="kasun@example.com">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password">Password * (min 6 characters)</label>
+                            <input type="password" id="password" name="password" required placeholder="Enter password" minlength="6">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="confirm_password">Confirm Password *</label>
+                            <input type="password" id="confirm_password" name="confirm_password" required placeholder="Re-enter password" minlength="6">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="phone">Phone Number</label>
+                            <input type="tel" id="phone" name="phone" value="<?php echo $phoneValue; ?>" placeholder="+94 77 123 4567">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="address">Delivery Address</label>
+                            <textarea id="address" name="address" rows="2" placeholder="Street Address, Apartment / House No."><?php echo $addressValue; ?></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="city">City / District</label>
+                            <input type="text" id="city" name="city" value="<?php echo $cityValue; ?>" placeholder="Colombo">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="postal_code">Postal Code</label>
+                            <input type="text" id="postal_code" name="postal_code" value="<?php echo $postalCodeValue; ?>" placeholder="00100">
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="password">Password *</label>
-                        <input type="password" id="password" name="password" required placeholder="Enter your password">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-lg btn-block auth-btn">
-                        Sign In →
+                    <button type="submit" class="btn btn-danger btn-lg btn-block auth-btn">
+                        Create My Account →
                     </button>
                 </form>
 
                 <div class="auth-footer">
-                    Don't have an account yet? <a href="registration.php">Create Account</a>
+                    Already registered? <a href="login.php">Sign In to Your Account</a>
                 </div>
             </div>
         </div>

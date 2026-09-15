@@ -24,7 +24,7 @@ function getCurrentUser() {
     $pdo = getDbConnection();
     if ($pdo) {
         try {
-            $stmt = $pdo->prepare("SELECT id, full_name, email, phone, address, city, role, created_at FROM `users` WHERE id = ? LIMIT 1");
+            $stmt = $pdo->prepare("SELECT id, full_name, email, phone, address, city, postal_code, role, created_at FROM `users` WHERE id = ? LIMIT 1");
             $stmt->execute([$_SESSION['user_id']]);
             $user = $stmt->fetch();
             if ($user) return $user;
@@ -58,6 +58,9 @@ function loginUser($email, $password) {
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password'])) {
+                if (!headers_sent()) {
+                    session_regenerate_id(true);
+                }
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['full_name'];
                 $_SESSION['user_role'] = $user['role'];
@@ -65,9 +68,10 @@ function loginUser($email, $password) {
                     'id' => $user['id'],
                     'full_name' => $user['full_name'],
                     'email' => $user['email'],
-                    'phone' => $user['phone'],
-                    'address' => $user['address'],
-                    'city' => $user['city'],
+                    'phone' => $user['phone'] ?? '',
+                    'address' => $user['address'] ?? '',
+                    'city' => $user['city'] ?? '',
+                    'postal_code' => $user['postal_code'] ?? '',
                     'role' => $user['role']
                 ];
                 return ['success' => true, 'message' => 'Welcome back, ' . $user['full_name'] . '!'];
@@ -77,6 +81,9 @@ function loginUser($email, $password) {
 
     // Default Demo Admin Fallback for testing without DB
     if ($email === 'admin@modelcars.com' && $password === 'password123') {
+        if (!headers_sent()) {
+            session_regenerate_id(true);
+        }
         $_SESSION['user_id'] = 1;
         $_SESSION['user_name'] = 'ModelCars Admin';
         $_SESSION['user_role'] = 'admin';
@@ -87,6 +94,7 @@ function loginUser($email, $password) {
             'phone' => '+94 77 123 4567',
             'address' => '123 Galle Road',
             'city' => 'Colombo',
+            'postal_code' => '00100',
             'role' => 'admin'
         ];
         return ['success' => true, 'message' => 'Welcome back, ModelCars Admin!'];
@@ -98,13 +106,14 @@ function loginUser($email, $password) {
 /**
  * Register a new customer
  */
-function registerUser($fullName, $email, $password, $phone = '', $address = '', $city = '') {
+function registerUser($fullName, $email, $password, $phone = '', $address = '', $city = '', $postalCode = '') {
     $fullName = trim($fullName);
     $email = trim(strtolower($email));
     $password = trim($password);
     $phone = trim($phone);
     $address = trim($address);
     $city = trim($city);
+    $postalCode = trim($postalCode);
 
     if (empty($fullName) || empty($email) || empty($password)) {
         return ['success' => false, 'message' => 'Please fill in your name, email, and password.'];
@@ -131,12 +140,15 @@ function registerUser($fullName, $email, $password, $phone = '', $address = '', 
             }
 
             $stmt = $pdo->prepare("
-                INSERT INTO `users` (`full_name`, `email`, `password`, `phone`, `address`, `city`, `role`)
-                VALUES (?, ?, ?, ?, ?, ?, 'customer')
+                INSERT INTO `users` (`full_name`, `email`, `password`, `phone`, `address`, `city`, `postal_code`, `role`)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'customer')
             ");
-            $stmt->execute([$fullName, $email, $hashedPassword, $phone, $address, $city]);
+            $stmt->execute([$fullName, $email, $hashedPassword, $phone, $address, $city, $postalCode]);
             $userId = $pdo->lastInsertId();
 
+            if (!headers_sent()) {
+                session_regenerate_id(true);
+            }
             $_SESSION['user_id'] = $userId;
             $_SESSION['user_name'] = $fullName;
             $_SESSION['user_role'] = 'customer';
@@ -147,15 +159,21 @@ function registerUser($fullName, $email, $password, $phone = '', $address = '', 
                 'phone' => $phone,
                 'address' => $address,
                 'city' => $city,
+                'postal_code' => $postalCode,
                 'role' => 'customer'
             ];
 
             return ['success' => true, 'message' => 'Account created successfully! Welcome to ModelCars Pro.'];
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+            return ['success' => false, 'message' => 'Registration failed due to a database error. Please try again.'];
+        }
     }
 
     // Session fallback if DB offline
     $mockId = rand(100, 999);
+    if (!headers_sent()) {
+        session_regenerate_id(true);
+    }
     $_SESSION['user_id'] = $mockId;
     $_SESSION['user_name'] = $fullName;
     $_SESSION['user_role'] = 'customer';
@@ -166,10 +184,11 @@ function registerUser($fullName, $email, $password, $phone = '', $address = '', 
         'phone' => $phone,
         'address' => $address,
         'city' => $city,
+        'postal_code' => $postalCode,
         'role' => 'customer'
     ];
 
-    return ['success' => true, 'message' => 'Account created successfully!'];
+    return ['success' => true, 'message' => 'Account created successfully! Welcome to ModelCars Pro.'];
 }
 
 /**
@@ -180,5 +199,8 @@ function logoutUser() {
     unset($_SESSION['user_name']);
     unset($_SESSION['user_role']);
     unset($_SESSION['user_data']);
+    if (!headers_sent() && session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
     return ['success' => true, 'message' => 'You have logged out successfully.'];
 }

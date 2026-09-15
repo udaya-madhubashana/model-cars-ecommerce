@@ -43,7 +43,14 @@ $flash = getFlashMessage();
                 <li><a href="shop.php">Shop Catalog</a></li>
                 <li><a href="shop.php?category=1">Sports Cars</a></li>
                 <li><a href="shop.php?category=4">Limited Edition</a></li>
-                <li><a href="#about">About</a></li>
+                <?php if (isLoggedIn()): ?>
+                    <?php $currentUser = getCurrentUser(); ?>
+                    <li><span class="user-greeting">Welcome, <?php echo sanitize($currentUser['full_name'] ?? 'Collector'); ?></span></li>
+                    <li><a href="logout.php" class="nav-logout-btn">Logout</a></li>
+                <?php else: ?>
+                    <li><a href="login.php" class="nav-auth-link">Login</a></li>
+                    <li><a href="registration.php" class="nav-auth-link">Register</a></li>
+                <?php endif; ?>
             </ul>
 
             <div class="nav-right">
@@ -60,6 +67,13 @@ $flash = getFlashMessage();
     </header>
 
     <div class="main-content">
+        <?php if ($flash): ?>
+            <div class="container" style="padding-top: 20px;">
+                <div class="alert alert-<?php echo $flash['type'] === 'success' ? 'success' : 'info'; ?>">
+                    <span><?php echo sanitize($flash['message']); ?></span>
+                </div>
+            </div>
+        <?php endif; ?>
         <!-- ===== HERO SECTION ===== -->
         <section class="hero" id="home">
             <div class="container hero-container">

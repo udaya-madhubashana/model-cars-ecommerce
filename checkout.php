@@ -70,6 +70,14 @@ if (empty($cartItems) && !$orderPlaced) {
                 <li><a href="shop.php">Shop Catalog</a></li>
                 <li><a href="shop.php?category=1">Sports Cars</a></li>
                 <li><a href="cart.php">Shopping Cart</a></li>
+                <?php if (isLoggedIn()): ?>
+                    <?php $currentUser = getCurrentUser(); ?>
+                    <li><span class="user-greeting">Welcome, <?php echo sanitize($currentUser['full_name'] ?? 'Collector'); ?></span></li>
+                    <li><a href="logout.php" class="nav-logout-btn">Logout</a></li>
+                <?php else: ?>
+                    <li><a href="login.php" class="nav-auth-link">Login</a></li>
+                    <li><a href="registration.php" class="nav-auth-link">Register</a></li>
+                <?php endif; ?>
             </ul>
 
             <div class="nav-right">
@@ -181,7 +189,7 @@ if (empty($cartItems) && !$orderPlaced) {
 
                                 <div class="form-group">
                                     <label for="postal_code">Postal Code *</label>
-                                    <input type="text" id="postal_code" name="postal_code" value="00100" required placeholder="00100">
+                                    <input type="text" id="postal_code" name="postal_code" value="<?php echo sanitize($currentUser['postal_code'] ?? '00100'); ?>" required placeholder="00100">
                                 </div>
                             </div>
 

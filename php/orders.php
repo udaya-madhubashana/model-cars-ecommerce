@@ -179,3 +179,29 @@ function getOrderDetails($orderNumber) {
 
     return null;
 }
+
+/**
+ * Retrieve all orders for a specific user ID
+ */
+function getUserOrders($userId) {
+    $userId = (int)$userId;
+    if ($userId <= 0) return [];
+
+    $pdo = getDbConnection();
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM `orders` WHERE `user_id` = ? ORDER BY `id` DESC");
+            $stmt->execute([$userId]);
+            $orders = $stmt->fetchAll();
+            if ($orders) return $orders;
+        } catch (Exception $e) {}
+    }
+
+    // Fallback: check session last_order
+    if (isset($_SESSION['last_order'])) {
+        return [$_SESSION['last_order']];
+    }
+
+    return [];
+}
+

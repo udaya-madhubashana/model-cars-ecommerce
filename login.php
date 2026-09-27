@@ -8,9 +8,12 @@ require_once __DIR__ . '/php/config.php';
 require_once __DIR__ . '/php/auth.php';
 require_once __DIR__ . '/php/cart.php';
 
-// If user is already logged in, redirect to homepage
+$redirectParam = $_GET['redirect'] ?? $_POST['redirect'] ?? '';
+$redirectUrl = getSafeRedirectUrl($redirectParam, 'index.php');
+
+// If user is already logged in, redirect to destination
 if (isLoggedIn()) {
-    redirect('index.php');
+    redirect($redirectUrl);
 }
 
 $errorMessage = '';
@@ -27,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $loginResult = loginUser($email, $password);
     if ($loginResult['success']) {
         setFlashMessage('success', $loginResult['message']);
-        redirect('index.php');
+        redirect($redirectUrl);
     } else {
         $errorMessage = $loginResult['message'];
     }
@@ -64,10 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if (isLoggedIn()): ?>
                     <?php $currentUser = getCurrentUser(); ?>
                     <li><span class="user-greeting">Welcome, <?php echo sanitize($currentUser['full_name'] ?? 'Collector'); ?></span></li>
+                    <li><a href="profile.php">My Profile</a></li>
                     <li><a href="logout.php" class="nav-logout-btn">Logout</a></li>
                 <?php else: ?>
                     <li><a href="login.php" class="active">Login</a></li>
-                    <li><a href="registration.php">Register</a></li>
+                    <li><a href="registration.php<?php echo !empty($redirectParam) ? '?redirect=' . urlencode($redirectParam) : ''; ?>">Register</a></li>
                 <?php endif; ?>
             </ul>
 
@@ -104,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <?php if ($flash): ?>
-                    <div class="alert alert-<?php echo $flash['type'] === 'success' ? 'success' : 'info'; ?>">
+                    <div class="alert alert-<?php echo $flash['type'] === 'success' ? 'success' : ($flash['type'] === 'warning' ? 'warning' : 'info'); ?>">
                         <span><?php echo sanitize($flash['message']); ?></span>
                     </div>
                 <?php endif; ?>
@@ -116,6 +120,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <form action="login.php" method="POST" class="auth-form">
+                    <?php if (!empty($redirectParam)): ?>
+                        <input type="hidden" name="redirect" value="<?php echo sanitize($redirectParam); ?>">
+                    <?php endif; ?>
+
                     <div class="form-group">
                         <label for="email">Email Address *</label>
                         <input type="email" id="email" name="email" value="<?php echo $emailValue; ?>" required autofocus placeholder="collector@example.com">
@@ -132,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
                 <div class="auth-footer">
-                    Don't have an account yet? <a href="registration.php">Create Account</a>
+                    Don't have an account yet? <a href="registration.php<?php echo !empty($redirectParam) ? '?redirect=' . urlencode($redirectParam) : ''; ?>">Create Account</a>
                 </div>
             </div>
         </div>

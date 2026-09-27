@@ -8,9 +8,12 @@ require_once __DIR__ . '/php/config.php';
 require_once __DIR__ . '/php/auth.php';
 require_once __DIR__ . '/php/cart.php';
 
-// If user is already logged in, redirect to homepage
+$redirectParam = $_GET['redirect'] ?? $_POST['redirect'] ?? '';
+$redirectUrl = getSafeRedirectUrl($redirectParam, 'profile.php');
+
+// If user is already logged in, redirect to destination
 if (isLoggedIn()) {
-    redirect('index.php');
+    redirect($redirectUrl);
 }
 
 $errorMessage = '';
@@ -57,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $regResult = registerUser($fullName, $email, $password, $phone, $address, $city, $postalCode);
         if ($regResult['success']) {
             setFlashMessage('success', $regResult['message']);
-            redirect('index.php');
+            redirect($redirectUrl);
         } else {
             $errorMessage = $regResult['message'];
         }
@@ -95,9 +98,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if (isLoggedIn()): ?>
                     <?php $currentUser = getCurrentUser(); ?>
                     <li><span class="user-greeting">Welcome, <?php echo sanitize($currentUser['full_name'] ?? 'Collector'); ?></span></li>
+                    <li><a href="profile.php">My Profile</a></li>
                     <li><a href="logout.php" class="nav-logout-btn">Logout</a></li>
                 <?php else: ?>
-                    <li><a href="login.php">Login</a></li>
+                    <li><a href="login.php<?php echo !empty($redirectParam) ? '?redirect=' . urlencode($redirectParam) : ''; ?>">Login</a></li>
                     <li><a href="registration.php" class="active">Register</a></li>
                 <?php endif; ?>
             </ul>
@@ -147,6 +151,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <form action="registration.php" method="POST" class="auth-form">
+                    <?php if (!empty($redirectParam)): ?>
+                        <input type="hidden" name="redirect" value="<?php echo sanitize($redirectParam); ?>">
+                    <?php endif; ?>
                     <div class="form-grid">
                         <div class="form-group full-width">
                             <label for="full_name">Full Name *</label>
@@ -195,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
 
                 <div class="auth-footer">
-                    Already registered? <a href="login.php">Sign In to Your Account</a>
+                    Already registered? <a href="login.php<?php echo !empty($redirectParam) ? '?redirect=' . urlencode($redirectParam) : ''; ?>">Sign In to Your Account</a>
                 </div>
             </div>
         </div>

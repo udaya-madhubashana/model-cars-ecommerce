@@ -10,6 +10,9 @@ require_once __DIR__ . '/php/cart.php';
 require_once __DIR__ . '/php/orders.php';
 require_once __DIR__ . '/php/auth.php';
 
+// Protect checkout page: user must be authenticated
+requireAuth('checkout.php');
+
 $cartItems = getCartItems();
 $subtotal = getCartSubtotal();
 $shippingFee = getCartShippingFee($subtotal);
@@ -73,6 +76,7 @@ if (empty($cartItems) && !$orderPlaced) {
                 <?php if (isLoggedIn()): ?>
                     <?php $currentUser = getCurrentUser(); ?>
                     <li><span class="user-greeting">Welcome, <?php echo sanitize($currentUser['full_name'] ?? 'Collector'); ?></span></li>
+                    <li><a href="profile.php">My Profile</a></li>
                     <li><a href="logout.php" class="nav-logout-btn">Logout</a></li>
                 <?php else: ?>
                     <li><a href="login.php" class="nav-auth-link">Login</a></li>

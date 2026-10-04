@@ -18,7 +18,7 @@ function generateOrderNumber() {
 /**
  * Process and create a new order from current cart contents
  */
-function createOrder($orderData) {
+function createOrder($orderData, $clearCartAfterCreate = true) {
     $cartItems = getCartItems();
     if (empty($cartItems)) {
         return [
@@ -107,8 +107,12 @@ function createOrder($orderData) {
 
             $pdo->commit();
 
-            // Clear cart
-            clearCart();
+            // Clear the cart immediately for normal/COD orders.
+            // Online PayHere orders keep the cart until the customer returns
+            // successfully from the payment page.
+            if ($clearCartAfterCreate) {
+                clearCart();
+            }
 
             return [
                 'success' => true,
@@ -141,7 +145,9 @@ function createOrder($orderData) {
         'created_at' => date('Y-m-d H:i:s')
     ];
 
-    clearCart();
+    if ($clearCartAfterCreate) {
+        clearCart();
+    }
 
     return [
         'success' => true,

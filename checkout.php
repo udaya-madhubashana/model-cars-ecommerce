@@ -9,6 +9,7 @@ require_once __DIR__ . '/php/products.php';
 require_once __DIR__ . '/php/cart.php';
 require_once __DIR__ . '/php/orders.php';
 require_once __DIR__ . '/php/auth.php';
+require_once __DIR__ . '/php/payhere_config.php';
 
 // Protect checkout page: user must be authenticated
 requireAuth('checkout.php');
@@ -23,15 +24,106 @@ $currentUser = getCurrentUser();
 $orderPlaced = false;
 $orderResult = null;
 $errorMessage = null;
+$payhereRedirect = false;
+$payhereData = [];
 
 // Handle Order Placement POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
-    $orderResult = createOrder($_POST);
-    if ($orderResult['success']) {
-        $orderPlaced = true;
+    $paymentMethod = $_POST['payment_method'] ?? 'cod';
+
+    // Card payments must have a real database order ID so the PayHere
+    // order reference is stable and can be shown after returning.
+    if ($paymentMethod === 'card' && !getDbConnection()) {
+        $errorMessage = 'Online payment requires the MySQL database. Please start MySQL in XAMPP and try again.';
     } else {
-        $errorMessage = $orderResult['message'];
+        $orderResult = createOrder($_POST, $paymentMethod !== 'card');
+
+        if ($orderResult['success']) {
+            if ($paymentMethod === 'card') {
+                if (empty($orderResult['order_id'])) {
+                    $errorMessage = 'Could not create a database order ID for PayHere. Please try again.';
+                    $orderResult = null;
+                } else {
+                    $nameParts = splitPayHereName($_POST['customer_name'] ?? '');
+                    $formattedAmount = number_format((float)$orderResult['total_amount'], 2, '.', '');
+                    $orderNumber = $orderResult['order_number'];
+
+                    // Use the local XAMPP site as the PayHere return/cancel target.
+                    $baseUrl = rtrim(
+                        'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost'),
+                        '/'
+                    ) . rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+
+                    $payhereData = [
+                        'merchant_id' => PAYHERE_MERCHANT_ID,
+                        'return_url' => $baseUrl . '/checkout.php?order_id=' . rawurlencode($orderNumber) . '&payment=success',
+                        'cancel_url' => $baseUrl . '/payment-cancel.php?order_id=' . rawurlencode($orderNumber),
+                        // PayHere requires a notify_url in the Checkout request.
+                        // For local Week 7 sandbox testing this points to the local
+                        // handler; a public URL/tunnel is needed if server-to-server
+                        // notifications must be received by PayHere.
+                        'notify_url' => $baseUrl . '/payment-notify.php',
+                        'order_id' => $orderNumber,
+                        'items' => 'ModelCars Pro Order ' . $orderNumber,
+                        'currency' => PAYHERE_CURRENCY,
+                        'amount' => $formattedAmount,
+                        'first_name' => $nameParts['first_name'],
+                        'last_name' => $nameParts['last_name'],
+                        'email' => trim($_POST['customer_email'] ?? ''),
+                        'phone' => trim($_POST['customer_phone'] ?? ''),
+                        'address' => trim($_POST['shipping_address'] ?? ''),
+                        'city' => trim($_POST['city'] ?? ''),
+                        'country' => 'Sri Lanka'
+                    ];
+                    $payhereData['hash'] = generatePayHereHash(
+                        PAYHERE_MERCHANT_ID,
+                        $orderNumber,
+                        $formattedAmount,
+                        PAYHERE_CURRENCY,
+                        PAYHERE_MERCHANT_SECRET
+                    );
+
+                    $payhereRedirect = true;
+                }
+            } else {
+                $orderPlaced = true;
+            }
+        } else {
+            $errorMessage = $orderResult['message'];
+        }
     }
+}
+
+// PayHere Sandbox redirect: render a POST form and submit it automatically.
+if ($payhereRedirect) {
+    ?><!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Redirecting to PayHere - <?php echo sanitize(APP_NAME); ?></title>
+        <style>
+            body { font-family: Arial, sans-serif; background: #f7f7f7; display:flex; min-height:100vh; align-items:center; justify-content:center; }
+            .box { background:#fff; padding:32px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,.08); text-align:center; max-width:420px; }
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            <h2>Redirecting to PayHere...</h2>
+            <p>Please wait while we securely open the PayHere Sandbox payment page.</p>
+            <form id="payhere-form" method="POST" action="<?php echo sanitize(PAYHERE_SANDBOX_URL); ?>">
+                <?php foreach ($payhereData as $field => $value): ?>
+                    <input type="hidden" name="<?php echo sanitize($field); ?>" value="<?php echo sanitize($value); ?>">
+                <?php endforeach; ?>
+                <noscript><button type="submit">Continue to PayHere</button></noscript>
+            </form>
+        </div>
+        <script>
+            document.getElementById('payhere-form').submit();
+        </script>
+    </body>
+    </html><?php
+    exit;
 }
 
 // Redirect to cart if empty and not viewing placed order
@@ -40,6 +132,17 @@ if (empty($cartItems) && !$orderPlaced) {
     if (isset($_GET['order_id'])) {
         $orderPlaced = true;
         $orderResult = getOrderDetails($_GET['order_id']);
+
+        // A successful PayHere return means the browser completed the
+        // Sandbox payment flow; now clear the preserved cart.
+        if (
+            isset($_GET['payment']) &&
+            $_GET['payment'] === 'success' &&
+            $orderResult &&
+            ($orderResult['payment_method'] ?? '') === 'card'
+        ) {
+            clearCart();
+        }
     } else {
         redirect('cart.php');
     }
@@ -113,7 +216,11 @@ if (empty($cartItems) && !$orderPlaced) {
                     <div class="success-icon">✓</div>
                     <h1 style="font-size: 28px; margin-bottom: 8px;">Thank You for Your Order!</h1>
                     <p style="color: var(--text-muted); margin-bottom: 24px;">
-                        Your order <strong>#<?php echo sanitize($orderResult['order_number']); ?></strong> has been received and is being prepared for dispatch.
+                        <?php if (isset($_GET['payment']) && $_GET['payment'] === 'success' && ($orderResult['payment_method'] ?? '') === 'card'): ?>
+                            Your PayHere Sandbox payment flow returned successfully for order <strong>#<?php echo sanitize($orderResult['order_number']); ?></strong>.
+                        <?php else: ?>
+                            Your order <strong>#<?php echo sanitize($orderResult['order_number']); ?></strong> has been received and is being prepared for dispatch.
+                        <?php endif; ?>
                     </p>
 
                     <div style="background: #f8f9fa; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; text-align: left; margin-bottom: 28px;">
@@ -219,8 +326,8 @@ if (empty($cartItems) && !$orderPlaced) {
                                 <label class="payment-label">
                                     <input type="radio" name="payment_method" value="card">
                                     <div>
-                                        <strong>💳 Credit / Debit Card (Visa, Mastercard)</strong>
-                                        <div style="font-size: 12px; color: var(--text-muted);">Fast, encrypted online checkout.</div>
+                                        <strong>💳 Credit / Debit Card (PayHere Sandbox)</strong>
+                                        <div style="font-size: 12px; color: var(--text-muted);">Secure online checkout through the PayHere Sandbox for testing.</div>
                                     </div>
                                 </label>
                             </div>
@@ -269,7 +376,7 @@ if (empty($cartItems) && !$orderPlaced) {
 
                                 <div style="margin-top: 24px;">
                                     <button type="submit" class="btn btn-danger btn-lg btn-block" style="font-size: 16px;">
-                                        Place Order Now (<?php echo formatPrice($grandTotal); ?>)
+                                        Place Order / Pay Now (<?php echo formatPrice($grandTotal); ?>)
                                     </button>
                                 </div>
 

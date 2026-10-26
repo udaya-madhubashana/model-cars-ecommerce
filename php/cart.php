@@ -17,7 +17,10 @@ if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart'])) {
  */
 function addToCart($productId, $quantity = 1) {
     $productId = (int)$productId;
-    $quantity = max(1, (int)$quantity);
+    if (!is_numeric($quantity) || (int)$quantity < 1 || (string)(int)$quantity !== trim((string)$quantity)) {
+        return ['success' => false, 'message' => 'Please enter a valid quantity of at least 1.'];
+    }
+    $quantity = (int)$quantity;
 
     $product = getProductById($productId);
     if (!$product) {
@@ -51,7 +54,7 @@ function updateCartQuantity($productId, $quantity) {
     $quantity = (int)$quantity;
 
     if ($quantity <= 0) {
-        return removeFromCart($productId);
+        return ['success' => false, 'message' => 'Quantity must be at least 1. Use Remove to delete an item.'];
     }
 
     if (isset($_SESSION['cart'][$productId])) {

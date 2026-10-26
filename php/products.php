@@ -277,11 +277,11 @@ function getBrands() {
 /**
  * Fetch all products with optional filters
  */
-function getAllProducts($categoryId = null, $brand = null, $sort = 'featured', $search = null) {
+function getAllProducts($categoryId = null, $brand = null, $sort = 'featured', $search = null, $minPrice = null, $maxPrice = null, $type = null) {
     $pdo = getDbConnection();
     if ($pdo) {
         try {
-            $sql = "SELECT p.*, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE 1=1";
+            $sql = "SELECT p.*, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.is_active = 1";
             $params = [];
 
             if (!empty($categoryId)) {
@@ -298,6 +298,9 @@ function getAllProducts($categoryId = null, $brand = null, $sort = 'featured', $
                 $sql .= " AND (p.name LIKE :search OR p.brand LIKE :search OR p.description LIKE :search)";
                 $params[':search'] = '%' . $search . '%';
             }
+            if ($minPrice !== null && $minPrice !== '') { $sql .= ' AND p.price >= :min_price'; $params[':min_price'] = (float)$minPrice; }
+            if ($maxPrice !== null && $maxPrice !== '') { $sql .= ' AND p.price <= :max_price'; $params[':max_price'] = (float)$maxPrice; }
+            if (!empty($type)) { $sql .= ' AND p.scale = :scale'; $params[':scale'] = $type; }
 
             switch ($sort) {
                 case 'price_low':
@@ -320,8 +323,9 @@ function getAllProducts($categoryId = null, $brand = null, $sort = 'featured', $
 
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            $results = $stmt->fetchAll();
-            if (!empty($results)) return $results;
+            // An empty result is valid when filters match no products; do not
+            // fall back to demo products after a successful database query.
+            return $stmt->fetchAll();
         } catch (Exception $e) {}
     }
 
@@ -348,6 +352,10 @@ function getAllProducts($categoryId = null, $brand = null, $sort = 'featured', $
                    strpos(strtolower($p['description']), $q) !== false;
         });
     }
+
+    if ($minPrice !== null && $minPrice !== '') $products = array_filter($products, fn($p) => (float)$p['price'] >= (float)$minPrice);
+    if ($maxPrice !== null && $maxPrice !== '') $products = array_filter($products, fn($p) => (float)$p['price'] <= (float)$maxPrice);
+    if (!empty($type)) $products = array_filter($products, fn($p) => ($p['scale'] ?? '') === $type);
 
     // Sort
     usort($products, function($a, $b) use ($sort) {
@@ -377,7 +385,7 @@ function getProductById($id) {
     $pdo = getDbConnection();
     if ($pdo) {
         try {
-            $stmt = $pdo->prepare("SELECT p.*, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.id = ? LIMIT 1");
+            $stmt = $pdo->prepare("SELECT p.*, c.name as category_name FROM products p JOIN categories c ON p.category_id = c.id WHERE p.id = ? AND p.is_active = 1 LIMIT 1");
             $stmt->execute([$id]);
             $res = $stmt->fetch();
             if ($res) return $res;

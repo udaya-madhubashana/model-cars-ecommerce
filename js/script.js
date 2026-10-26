@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initQuantityControls();
     initPaymentSelectors();
     initNewsletter();
+    initMobileMenu();
 });
 
 /**
@@ -46,7 +47,11 @@ function initCartHandlers() {
             e.preventDefault();
             const productId = this.getAttribute('data-product-id');
             const qtyInput = document.querySelector(`input[name="quantity"][data-product-id="${productId}"]`);
-            const quantity = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+            const quantity = qtyInput ? parseInt(qtyInput.value, 10) : 1;
+            if (!Number.isInteger(quantity) || quantity < 1) {
+                showToast('Please choose a quantity of at least 1.', 'error');
+                return;
+            }
 
             const btn = this;
             const originalHtml = btn.innerHTML;
@@ -77,10 +82,8 @@ function initCartHandlers() {
             .catch(err => {
                 btn.innerHTML = originalHtml;
                 btn.disabled = false;
-                // Fallback for direct form submit if needed
-                showToast('Item added to cart!', 'success');
-                const badge = document.querySelector('.cart-count');
-                if (badge) badge.textContent = parseInt(badge.textContent || 0) + quantity;
+                // Never report success when the server request failed.
+                showToast('Could not update the cart. Please check your connection and try again.', 'error');
             });
         });
     });
@@ -160,4 +163,25 @@ function initNewsletter() {
             }
         });
     }
+}
+
+
+/** Add an accessible collapsible menu on small screens. */
+function initMobileMenu() {
+    const nav = document.querySelector('header nav');
+    const menu = nav ? nav.querySelector('.nav-menu') : null;
+    if (!nav || !menu || nav.querySelector('.mobile-menu-toggle')) return;
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'mobile-menu-toggle';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', 'site-navigation');
+    toggle.innerHTML = '<span aria-hidden="true">☰</span> Menu';
+    menu.id = 'site-navigation';
+    menu.before(toggle);
+    toggle.addEventListener('click', function () {
+        const open = menu.classList.toggle('is-open');
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.innerHTML = open ? '<span aria-hidden="true">✕</span> Close Menu' : '<span aria-hidden="true">☰</span> Menu';
+    });
 }

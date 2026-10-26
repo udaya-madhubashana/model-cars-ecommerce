@@ -438,6 +438,7 @@ $roleClass = ($currentUser['role'] ?? 'customer') === 'admin' ? 'admin' : 'custo
                         <li><a href="shop.php">All Products</a></li>
                         <li><a href="cart.php">Shopping Cart</a></li>
                         <li><a href="profile.php">My Profile</a></li>
+                    <?php if (($currentUser['role'] ?? 'customer') === 'admin'): ?><li><a href="admin/index.php">Admin Dashboard</a></li><?php endif; ?>
                         <li><a href="logout.php">Logout</a></li>
                     </ul>
                 </div>

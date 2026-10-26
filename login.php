@@ -134,6 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="password" id="password" name="password" required placeholder="Enter your password">
                     </div>
 
+                    <p class="auth-switch" style="text-align:right;margin:0 0 12px"><a href="forgot-password.php">Forgot your password?</a></p>
                     <button type="submit" class="btn btn-primary btn-lg btn-block auth-btn">
                         Sign In →
                     </button>

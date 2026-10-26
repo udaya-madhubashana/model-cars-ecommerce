@@ -13,8 +13,11 @@ $categoryId = isset($_GET['category']) ? (int)$_GET['category'] : null;
 $brand = isset($_GET['brand']) ? sanitize($_GET['brand']) : null;
 $sort = isset($_GET['sort']) ? sanitize($_GET['sort']) : 'featured';
 $search = isset($_GET['search']) ? sanitize($_GET['search']) : null;
+$minPrice = (isset($_GET['min_price']) && is_numeric($_GET['min_price'])) ? max(0, (float)$_GET['min_price']) : null;
+$maxPrice = (isset($_GET['max_price']) && is_numeric($_GET['max_price'])) ? max(0, (float)$_GET['max_price']) : null;
+$type = isset($_GET['type']) ? sanitize($_GET['type']) : null;
 
-$products = getAllProducts($categoryId, $brand, $sort, $search);
+$products = getAllProducts($categoryId, $brand, $sort, $search, $minPrice, $maxPrice, $type);
 $categories = getCategories();
 $brands = getBrands();
 $cartCount = getCartCount();
@@ -62,6 +65,7 @@ if ($categoryId) {
                     <?php $currentUser = getCurrentUser(); ?>
                     <li><span class="user-greeting">Welcome, <?php echo sanitize($currentUser['full_name'] ?? 'Collector'); ?></span></li>
                     <li><a href="profile.php">My Profile</a></li>
+                    <?php if (($currentUser['role'] ?? 'customer') === 'admin'): ?><li><a href="admin/index.php">Admin Dashboard</a></li><?php endif; ?>
                     <li><a href="logout.php" class="nav-logout-btn">Logout</a></li>
                 <?php else: ?>
                     <li><a href="login.php" class="nav-auth-link">Login</a></li>
@@ -88,7 +92,7 @@ if ($categoryId) {
             <a href="index.php">Home</a>
             <span>/</span>
             <a href="shop.php">Shop</a>
-            <?php if ($categoryId || $brand || $search): ?>
+            <?php if ($categoryId || $brand || $search || $minPrice !== null || $maxPrice !== null || $type): ?>
                 <span>/</span>
                 <span class="active"><?php echo sanitize($activeCategoryName); ?><?php echo $brand ? " - " . sanitize($brand) : ""; ?><?php echo $search ? " (Search: \"" . sanitize($search) . "\")" : ""; ?></span>
             <?php else: ?>
@@ -140,7 +144,31 @@ if ($categoryId) {
                         </ul>
                     </div>
 
-                    <?php if ($categoryId || $brand || $search): ?>
+                    <div class="filter-group">
+                        <h4 class="filter-title">Price & Type</h4>
+                        <form method="get" action="shop.php" class="price-filter-form">
+                            <?php if ($categoryId): ?><input type="hidden" name="category" value="<?php echo (int)$categoryId; ?>"><?php endif; ?>
+                            <?php if ($brand): ?><input type="hidden" name="brand" value="<?php echo sanitize($brand); ?>"><?php endif; ?>
+                            <?php if ($search): ?><input type="hidden" name="search" value="<?php echo sanitize($search); ?>"><?php endif; ?>
+                            <?php if ($minPrice !== null): ?><input type="hidden" name="min_price" value="<?php echo sanitize($minPrice); ?>"><?php endif; ?>
+                            <?php if ($maxPrice !== null): ?><input type="hidden" name="max_price" value="<?php echo sanitize($maxPrice); ?>"><?php endif; ?>
+                            <?php if ($type): ?><input type="hidden" name="type" value="<?php echo sanitize($type); ?>"><?php endif; ?>
+                            <label for="min-price">Minimum price (LKR)</label>
+                            <input id="min-price" name="min_price" type="number" min="0" step="0.01" value="<?php echo $minPrice !== null ? sanitize($minPrice) : ''; ?>" placeholder="0">
+                            <label for="max-price">Maximum price (LKR)</label>
+                            <input id="max-price" name="max_price" type="number" min="0" step="0.01" value="<?php echo $maxPrice !== null ? sanitize($maxPrice) : ''; ?>" placeholder="Any">
+                            <label for="type-filter">Model type / scale</label>
+                            <select id="type-filter" name="type">
+                                <option value="">All types</option>
+                                <?php foreach (['1:64','1:43','1:24','1:18'] as $scaleOption): ?>
+                                <option value="<?php echo $scaleOption; ?>" <?php echo $type === $scaleOption ? 'selected' : ''; ?>><?php echo $scaleOption; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-block">Apply Filters</button>
+                        </form>
+                    </div>
+
+                    <?php if ($categoryId || $brand || $search || $minPrice !== null || $maxPrice !== null || $type): ?>
                         <div style="margin-top: 20px;">
                             <a href="shop.php" class="btn btn-outline-dark btn-sm btn-block">Reset All Filters</a>
                         </div>
@@ -161,6 +189,9 @@ if ($categoryId) {
                             <?php if ($categoryId): ?><input type="hidden" name="category" value="<?php echo $categoryId; ?>"><?php endif; ?>
                             <?php if ($brand): ?><input type="hidden" name="brand" value="<?php echo sanitize($brand); ?>"><?php endif; ?>
                             <?php if ($search): ?><input type="hidden" name="search" value="<?php echo sanitize($search); ?>"><?php endif; ?>
+                            <?php if ($minPrice !== null): ?><input type="hidden" name="min_price" value="<?php echo sanitize($minPrice); ?>"><?php endif; ?>
+                            <?php if ($maxPrice !== null): ?><input type="hidden" name="max_price" value="<?php echo sanitize($maxPrice); ?>"><?php endif; ?>
+                            <?php if ($type): ?><input type="hidden" name="type" value="<?php echo sanitize($type); ?>"><?php endif; ?>
                             
                             <label for="sort-select" style="font-size: 13px; font-weight: 600;">Sort By:</label>
                             <select id="sort-select" name="sort" class="sort-select" onchange="this.form.submit()">

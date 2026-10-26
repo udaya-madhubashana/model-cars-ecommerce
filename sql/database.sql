@@ -61,6 +61,7 @@ CREATE TABLE `products` (
     `badge` VARCHAR(50) NULL,
     `image` VARCHAR(255) NOT NULL,
     `is_featured` TINYINT(1) DEFAULT 1,
+    `is_active` TINYINT(1) NOT NULL DEFAULT 1,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT `fk_products_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE CASCADE

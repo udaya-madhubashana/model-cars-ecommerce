@@ -1,0 +1,10 @@
+<?php
+$pageTitle='Inventory Management';$activePage='inventory';require_once __DIR__.'/_header.php';
+if($_SERVER['REQUEST_METHOD']==='POST'){verifyAdminCsrf();$id=(int)($_POST['id']??0);$stock=max(0,(int)($_POST['stock_quantity']??0));try{$s=$pdo->prepare("UPDATE products SET stock_quantity=? WHERE id=?");$s->execute([$stock,$id]);setFlashMessage('success','Stock quantity updated.');}catch(Throwable $e){setFlashMessage('error','Could not update stock.');}redirect('inventory.php');}
+$products=$pdo->query("SELECT p.id,p.name,p.brand,p.stock_quantity,p.is_active,c.name category_name FROM products p JOIN categories c ON c.id=p.category_id ORDER BY p.stock_quantity ASC,p.name ASC")->fetchAll();
+?>
+<div class="admin-title-row"><div><h1>Inventory Management</h1><p>Monitor stock and update quantities stored in MySQL.</p></div></div>
+<div class="admin-card"><div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>ID</th><th>Product</th><th>Category</th><th>Current Stock</th><th>Status</th><th>Update Stock</th></tr></thead><tbody>
+<?php foreach($products as $p): ?><tr><td><?php echo $p['id']; ?></td><td><strong><?php echo sanitize($p['name']); ?></strong><br><small><?php echo sanitize($p['brand']); ?></small></td><td><?php echo sanitize($p['category_name']); ?></td><td class="<?php echo $p['stock_quantity']<=5?'stock-low':'stock-ok'; ?>"><?php echo (int)$p['stock_quantity']; ?> units</td><td><?php echo $p['is_active']?'Active':'Inactive'; ?></td><td><form method="post" class="admin-actions"><input type="hidden" name="csrf_token" value="<?php echo adminCsrfToken(); ?>"><input type="hidden" name="id" value="<?php echo $p['id']; ?>"><input type="number" min="0" name="stock_quantity" value="<?php echo (int)$p['stock_quantity']; ?>" style="width:90px;padding:8px;border:1px solid #cbd5e1;border-radius:7px"><button class="admin-btn" type="submit">Save</button></form></td></tr><?php endforeach; ?>
+</tbody></table></div></div>
+<?php require_once __DIR__.'/_footer.php'; ?>
